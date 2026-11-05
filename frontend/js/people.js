@@ -1,20 +1,62 @@
 /* People tab: profile view/edit, person picker. Extracted state (people, cur, editing) lives in app.js. */
 const PAIRS=[['details','Personal details']];
-function drawP(){
- const p=P(),ini=(p.name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2)||'?').toUpperCase();
- $('pick').innerHTML=people.map(x=>`<option value="${x.id}"${x.id===p.id?' selected':''}>${esc(x.name)}${x.faces.length?' 👤':''}</option>`).join('');
- let h=`<div class="bar"><span></span><span>${editing?'<button class="btn" id="cx">Cancel</button> ':''}<button class="btn pri" id="ed">${editing?'Save profile':'Edit profile'}</button></span></div><section class="card head"><div class="avatar" aria-hidden="true">${esc(ini)}</div><div style="flex:1;min-width:240px">`;
- h+=editing?`<input type="text" id="f_name" value="${esc(p.name)}" aria-label="Name"><div class="grid" style="margin-top:8px;gap:8px"><input type="text" id="f_age" value="${esc(p.age)}" aria-label="Age" placeholder="Age"><input type="text" id="f_gender" value="${esc(p.gender)}" aria-label="Gender" placeholder="Gender"><input type="text" id="f_city" value="${esc(p.city)}" aria-label="City" placeholder="City"></div><input type="text" id="f_tags" style="margin-top:8px" value="${esc(p.tags.join(', '))}" aria-label="Tags, comma separated" placeholder="Tags, comma separated">`
-  :`<h1>${esc(p.name)}</h1><div>Age ${esc(p.age||'–')} · ${esc(p.gender||'–')} · ${esc(p.city||'–')}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`;
- h+='</div></section><div class="grid">';
- PAIRS.forEach(([k,t])=>{h+=`<section class="card"><h2>${t}</h2><dl>${p[k].map((r,i)=>`<dt>${r[0]}</dt><dd>${editing?`<input type="text" data-k="${k}" data-i="${i}" value="${esc(r[1])}" aria-label="${r[0]}">`:esc(r[1]||'–')}</dd>`).join('')}</dl></section>`});
- h+=`<section class="card"><h2>Face recognition</h2><p>${p.faces.length?`Enrolled (${p.faces.length} samples). This person can be recognised on the Live tab.`:'Not enrolled yet. Open the Live tab, start the camera and press “Enroll face”.'}</p>${p.faces.length?'<button class="btn" id="rmf">Remove face data</button>':''}</section></div>`;
- h+='<section class="card" style="margin-top:16px"><h2>Saved sessions</h2><div id="sess"></div></section>';$('p0').innerHTML=h;drawSessions();
- $('ed').onclick=()=>{if(editing){p.name=$('f_name').value.trim()||p.name;p.age=$('f_age').value;p.gender=$('f_gender').value;p.city=$('f_city').value;p.tags=$('f_tags').value.split(',').map(s=>s.trim()).filter(Boolean);
-  document.querySelectorAll('[data-k]').forEach(i=>p[i.dataset.k][+i.dataset.i][1]=i.value);
-  document.querySelectorAll('[data-l]').forEach(i=>p[i.dataset.l]=i.value.split('\n').map(s=>s.trim()).filter(Boolean));save()}editing=!editing;drawAll()};
- if(editing)$('cx').onclick=()=>{editing=false;drawAll()};
- if(p.faces.length)$('rmf').onclick=()=>{p.faces=[];save();drawAll()};
+let pStream = null, pend = null;
+function drawP() {
+  const p = P(), ok = profileComplete(p), ini = ((p.name || '').split(/\s+/).map(w => w[0] || '').join('').slice(0, 2) || '?').toUpperCase();
+  let h = '';
+  if (!ok) h += '<div class="tip alert" style="margin-bottom:12px">Register the patient first: fill in the details and take a photo. The Live tab unlocks afterwards.</div>';
+  h += `<div class="bar"><span></span><span>${editing && ok ? '<button class="btn" id="cx">Cancel</button> ' : ''}<button class="btn pri" id="ed">${editing ? (ok ? 'Save profile' : 'Register patient') : 'Edit profile'}</button></span></div>`;
+  h += `<section class="card head">${p.photo ? `<img class="avatar" src="${p.photo}" alt="" style="object-fit:cover">` : `<div class="avatar" aria-hidden="true">${esc(ini)}</div>`}<div style="flex:1;min-width:240px">`;
+  h += editing ? `<input type="text" id="f_name" value="${esc(p.name)}" aria-label="Name" placeholder="Full name"><div class="grid" style="margin-top:8px;gap:8px"><input type="text" id="f_age" value="${esc(p.age)}" aria-label="Age" placeholder="Age"><input type="text" id="f_gender" value="${esc(p.gender)}" aria-label="Gender" placeholder="Gender"><input type="text" id="f_city" value="${esc(p.city)}" aria-label="City" placeholder="City"></div><input type="text" id="f_tags" style="margin-top:8px" value="${esc(p.tags.join(', '))}" aria-label="Tags, comma separated" placeholder="Tags, comma separated">`
+    : `<h1>${esc(p.name)}</h1><div>Age ${esc(p.age || '–')} · ${esc(p.gender || '–')} · ${esc(p.city || '–')}</div><div class="tags">${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>`;
+  h += '</div></section>';
+  if (editing) h += `<section class="card" style="margin:16px 0"><h2>Photo</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+    <video id="pv" muted playsinline style="width:240px;border-radius:12px;background:#000;display:none"></video>
+    <img id="pimg" alt="Registered photo" style="width:240px;border-radius:12px;${p.photo ? '' : 'display:none'}" ${p.photo ? `src="${p.photo}"` : ''}>
+    <div><p class="ctl"><button class="btn" id="pcam" type="button">${p.photo ? 'Retake photo' : 'Start camera'}</button> <button class="btn pri" id="psnap" type="button" disabled>Take photo</button></p>
+    <label class="hint" style="display:block"><input type="checkbox" id="pconsent"> I have consent from the person (or their guardian) to store this photo and face template.</label>
+    <div id="pmsg" class="hint" role="status"></div></div></div></section>`;
+  h += '<div class="grid">';
+  PAIRS.forEach(([k, t]) => { h += `<section class="card"><h2>${t}</h2><dl>${p[k].map((r, i) => `<dt>${r[0]}</dt><dd>${editing ? `<input type="text" data-k="${k}" data-i="${i}" value="${esc(r[1])}" aria-label="${r[0]}">` : esc(r[1] || '–')}</dd>`).join('')}</dl></section>` });
+  h += `<section class="card"><h2>Face recognition</h2><p>${p.faces.length ? 'Set up from the registration photo. This person is recognised on the Live tab.' : 'Not set up yet. Take a photo while editing the profile.'}</p></section></div>`;
+  h += '<section class="card" style="margin-top:16px"><h2>Saved sessions</h2><div id="sess"></div></section>';
+  $('p0').innerHTML = h; drawSessions();
+
+  if (editing) { $('pcam').onclick = startPhotoCam; $('psnap').onclick = takePhoto; }
+  $('ed').onclick = async () => {
+    if (!editing) { pend = null; editing = true; drawAll(); return; }
+    p.name = $('f_name').value.trim(); p.age = $('f_age').value.trim(); p.gender = $('f_gender').value; p.city = $('f_city').value;
+    p.tags = $('f_tags').value.split(',').map(s => s.trim()).filter(Boolean);
+    document.querySelectorAll('[data-k]').forEach(i => p[i.dataset.k][+i.dataset.i][1] = i.value);
+    if (pend) { p.photo = pend.photo; p.faces = pend.faces; }
+    const m = missing(p);
+    if (m.length) { alert('Please add: ' + m.join(', ') + '.'); return; }
+    pend = null; stopPhotoCam(); editing = false;
+    save(); await flush(); lockTabs(); drawAll();
+  };
+  if (editing && ok) $('cx').onclick = () => { pend = null; stopPhotoCam(); editing = false; drawAll(); };
+}
+
+async function startPhotoCam() {
+  if (!await loadModels()) { $('pmsg').textContent = 'Could not load the face models. Check your internet connection.'; return; }
+  try { pStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } }); }
+  catch (e) { $('pmsg').textContent = 'Camera blocked or not found. Allow camera access and try again.'; return; }
+  const v = $('pv'); v.srcObject = pStream; v.style.display = ''; await v.play();
+  $('psnap').disabled = false; $('pmsg').textContent = 'Look at the camera, then press Take photo.';
+}
+function stopPhotoCam() { if (pStream) { pStream.getTracks().forEach(t => t.stop()); pStream = null; } }
+async function takePhoto() {
+  if (!$('pconsent').checked) { $('pmsg').textContent = 'Tick the consent box first.'; return; }
+  const v = $('pv'); if (!v.videoWidth) return;
+  const w = Math.min(320, v.videoWidth), c = document.createElement('canvas');
+  c.width = w; c.height = Math.round(v.videoHeight * w / v.videoWidth);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  $('pmsg').textContent = 'Checking the photo…';
+  let r; try { r = await faceapi.detectSingleFace(c, OPT()).withFaceLandmarks(true).withFaceDescriptor(); } catch (e) {}
+  if (!r) { $('pmsg').textContent = 'No clear face found. Face the camera in good light and try again.'; return; }
+  pend = { photo: c.toDataURL('image/jpeg', 0.8), faces: [Array.from(r.descriptor)] };
+  const im = $('pimg'); im.src = pend.photo; im.style.display = '';
+  $('pmsg').textContent = 'Photo captured. Press the save button above to finish.';
 }
 /* ---------- Saved sessions (Profile tab) + analysis page ---------- */
 const POS=['happy'],DIS=['sad','angry','fearful','disgusted'];

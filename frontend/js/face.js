@@ -57,6 +57,7 @@ async function tick(){
  setTimeout(tick,160);
 }
 $('start').onclick=async()=>{
+  if(!profileComplete(P())){tab(0);return}
  if(!await loadModels())return;
  try{stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}})}
  catch(e){say('Camera blocked or not found. Allow camera access and try again.',1);return}

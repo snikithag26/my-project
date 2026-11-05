@@ -21,10 +21,11 @@ $('af').onsubmit = async e => {
 async function start() {
   try { user = await api('GET', '/api/me'); } catch (e) { $('login').hidden = false; return; }
   people = await api('GET', '/api/people');
-  if (!people.length) { people = [blank()]; editing = true; cur = people[0].id; save(); }
+  people = people.length ? [people[0]] : [blank()];   // one person per account
   cur = people[0].id;
+  editing = !profileComplete(P());                     // force the registration form
   $('uchip').textContent = user.name + ' · ' + user.role;
   $('login').hidden = true; $('app').hidden = false;
-  drawAll();
+  drawAll(); lockTabs(); tab(0);
 }
 token ? start() : ($('login').hidden = false);

@@ -3,6 +3,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = Path(os.environ.get("AUTISPHERE_DB", ROOT / "data" / "autisphere.db"))
@@ -122,3 +123,33 @@ def delete_person(pid, user):
         c.execute("DELETE FROM sessions WHERE person_id=?", (pid,))
         c.execute("DELETE FROM people WHERE id=?", (pid,))
     return True
+
+# ---- One person per account ----------------------------------------------
+# Fields that must be filled before the app unlocks. Rename to match your form.
+REQUIRED_FIELDS = ("name", "age", "photo")
+
+
+def get_my_profile(user):
+    """The single person owned by this account (the oldest one, if legacy data has several)."""
+    with get_conn() as c:
+        r = c.execute(
+            "SELECT id, data FROM people WHERE owner_id=? ORDER BY rowid LIMIT 1",
+            (user["id"],),
+        ).fetchone()
+        return _person(c, r["id"], r["data"]) if r else None
+
+
+def profile_is_complete(user):
+    p = get_my_profile(user)
+    return bool(p) and all(p.get(f) not in (None, "", []) for f in REQUIRED_FIELDS)
+
+
+def save_my_profile(user, data):
+    """Create or update the account's only person. Raises ValueError if required fields are missing."""
+    missing = [f for f in REQUIRED_FIELDS if data.get(f) in (None, "", [])]
+    if missing:
+        raise ValueError("Missing: " + ", ".join(missing))
+    existing = get_my_profile(user)
+    pid = existing["id"] if existing else "p" + uuid.uuid4().hex[:12]
+    data = {k: v for k, v in data.items() if k not in ("id", "sessions")}
+    return upsert_person(pid, user, data)

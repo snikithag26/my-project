@@ -12,13 +12,25 @@ async function api(method, url, body, raw) {
   return raw ? r : r.json();
 }
 
-const P = () => people.find(p => p.id === cur) || people[0];
+const P = () => people[0];
 const blank = () => ({
-  id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: 'New person', age: '', gender: '', city: '', tags: [],
+  id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: '', age: '', gender: '', city: '', tags: [], photo: '',
   details: ['Date of birth', 'Parent / guardian', 'Contact', 'School', 'Language', 'Blood group'].map(l => [l, '']),
   care: ['Diagnosed', 'Diagnosed by', 'Therapist', 'Co-conditions', 'Allergies'].map(l => [l, '']),
   meds: [], sensory: [], triggers: [], helps: [], faces: [], sessions: [], mood: [], assessments: []
 });
+
+/* Registration gate */
+const missing = p => [
+  !p || !String(p.name || '').trim() ? 'name' : '',
+  !p || !String(p.age || '').trim() ? 'age' : '',
+  !p || !p.photo ? 'photo' : ''
+].filter(Boolean);
+const profileComplete = p => missing(p).length === 0;
+function lockTabs() {
+  const ok = profileComplete(P());
+  $('t1').disabled = !ok; $('t1').title = ok ? '' : 'Register the patient first';
+}
 
 /* Debounced upsert of the current person. flush() sends immediately (used before reports). */
 let saveTimer = null, queued = null;
@@ -32,9 +44,10 @@ async function flush() {
 }
 
 function tab(i) {
+  if (i === 1 && !profileComplete(P())) { i = 0; alert('Please register the patient first: fill in the details and take a photo.'); }
+  if (i !== 0) stopPhotoCam();
   [0, 1].forEach(j => { $('p' + j).classList.toggle('on', i === j); $('t' + j).setAttribute('aria-selected', i === j); });
   $('ptitle').textContent = ['Profile', 'Live session'][i];
-  $('pbar').style.display = '';
 }
 [0, 1].forEach(i => $('t' + i).onclick = () => tab(i));
 ['t2', 'p2', 'add', 'del', 'report'].forEach(id => { const e = $(id); if (e) e.hidden = true; }); // removed features
