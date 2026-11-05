@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutiSphere</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head><body>
+<div class="overlay" id="login" hidden><div class="authwrap"><div class="authbrand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></span><h1>AutiSphere</h1><p>Personalised, AI-assisted support for autistic individuals, their families and care teams.</p><ul><li>Recognise who is on camera and how they feel</li><li>Screening, stress forecasts and plain-language tools</li><li>PDF reports for parents, teachers and therapists</li></ul></div><section class="card auth">
+ <h2 style="font-size:1.3rem;margin:0">Welcome</h2><p class="hint" style="margin-top:4px">Log in or create an account to continue.</p>
+ <form id="af">
+  <div id="nameRow" hidden><label for="a_name">Your name</label><input type="text" id="a_name" autocomplete="name"></div>
+  <label for="a_email">Email</label><input type="text" id="a_email" autocomplete="username">
+  <label for="a_pw">Password</label><input type="password" id="a_pw" autocomplete="current-password">
+  <div id="roleRow" hidden><label for="a_role">I am a</label><select id="a_role"><option value="parent">Parent / guardian</option><option value="therapist">Therapist</option><option value="teacher">Teacher</option></select></div>
+  <div class="err" id="a_err" role="alert"></div>
+  <p class="ctl"><button class="btn pri" id="a_go" type="submit">Log in</button><button class="btn" id="a_sw" type="button">Create an account</button></p>
+ </form>
+ <p class="hint">Demo logins (after running the seed script): parent@demo.com, therapist@demo.com, teacher@demo.com. Password: demo1234.</p>
+</section></div></div>
+
+<div class="shell" id="app" hidden>
+<aside class="side">
+ <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></span>AutiSphere</div>
+ <nav class="tabs" role="tablist" aria-label="Sections"><button role="tab" id="t0" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>People</button><button role="tab" id="t1" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><circle cx="12" cy="12.5" r="3.5"/></svg>Live recognition</button><button role="tab" id="t2" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>Support tools</button></nav>
+ <div class="side-foot"><div class="uchip" id="uchip"></div><button class="btn ghost" id="logout">Log out</button></div>
+</aside>
+<div class="content">
+<header class="top"><h1 id="ptitle">People and profiles</h1><div class="actions"><button class="btn" id="report">PDF report</button><button class="btn" id="theme">Theme</button></div></header>
+<div id="pbar"><span><label for="pick">Person</label><select id="pick"></select></span><span><button class="btn" id="add">Add person</button> <button class="btn" id="del">Delete</button></span></div>
+<div class="panel on" id="p0"></div>
+<div class="panel" id="p1">
+<section class="card"><h2>Face recognition and expression evaluator</h2>
+<div class="ev">
+ <div>
+  <div class="stage" id="stage"><span id="ph">Camera is off.<br>Press “Start camera”.</span><video id="vid" muted playsinline></video><canvas id="ov"></canvas></div>
+  <div class="ctl">
+   <button class="btn pri" id="start">Start camera</button>
+   <button class="btn" id="stop" disabled>End session</button>
+   <button class="btn" id="enroll" disabled>Enroll face</button>
+  </div>
+  <label class="hint" style="display:block"><input type="checkbox" id="consent"> I have consent from the person (or their guardian) to store this face’s numeric template on this device.</label>
+  <div id="status" role="status"></div>
+ </div>
+ <div>
+  <div class="who unk" id="who">Identity: camera off</div>
+  <div class="dom"><span class="em" id="emo">🫥</span><div><b id="dom">No face yet</b><span class="hint" id="conf" style="margin:0">Waiting for a face</span></div></div>
+  <div id="bars"></div>
+  <div class="tip" id="tip">Suggested support appears here, using the recognised person’s “What helps” list.</div>
+ </div>
+</div>
+<h3 style="font-size:1rem;margin-top:18px">Session timeline</h3>
+<div id="strip" aria-label="Expression timeline"></div><div class="leg" id="leg"></div>
+<div id="sum" class="hint"></div>
+<div class="note">Support aid, not a diagnosis. Recognition and expression models run in your browser; no images or video leave the device. Expression models are trained mostly on neurotypical faces and can misread autistic expressions, so treat results as a prompt to check in.</div>
+</section>
+<section class="card"><h2 id="hh">Recent sessions</h2><ul id="hist"></ul></section>
+</div>
+
+<div class="panel" id="p2"></div>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/people.js"></script>
+<script src="js/face.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/main.js"></script>
+</body></html>
